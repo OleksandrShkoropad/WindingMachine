@@ -38,9 +38,11 @@ void SettingItemBase::Click()
 {
     if (!_isSelected)
         return;
-    canEditValue = !canEditValue;
+    
     if (_clickFunc)
         _clickFunc();
+    else
+        canEditValue = !canEditValue;
 }
 
 void SettingItemBase::Left()

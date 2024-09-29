@@ -19,15 +19,17 @@ EncButton eb(S1, S2, KEY); //зміна енкодера
 SettingItemBase* settingMenu[MAIN_MENU_SIZE]; //пункти меню
 
 volatile int turns;
-int lastTurn;
-bool dirUp;
-bool dirDown;
-bool selectYes;
+int _lastTurn;
+bool _dirUp;
+bool _dirDown;
+bool _selectYes;
 
 bool _revers = false;
 bool _beep = false;
+bool _forceUpdate = false;
+char _buffer[5];
 
-// #pragma region CustomChars
+#pragma region CustomChars
 byte charUp[8] = {
     B00000,
     B00100,
@@ -67,7 +69,7 @@ byte selectChar[8] = {
     B01000,
     B00000,
     B00000};
-// #pragma endregion CustomChars
+#pragma endregion CustomChars
 
 void handleInterrupt()  
 {
@@ -90,21 +92,51 @@ void StartMessage()
 
 void UpdateTurns()
 {
+  Serial.print("UpdateTurns");
   lcd.setCursor(5, 0);
   lcd.print("TURNS:");
   lcd.setCursor(5, 1);
 
-  char buffer[5];
-
-  sprintf(buffer, "%06d", turns);
-  lcd.print(buffer);
+  sprintf(_buffer, "%05d", turns);
+  lcd.print(_buffer);
 }
+
 
 void OnClickBackHandler(){
   Serial.print("OnClickBackHandler");
   menuController.Hide();
-  UpdateTurns();
+  //UpdateTurns();
+  _forceUpdate = true;
 }
+
+void ShowResetTurnsWarning()
+{
+  lcd.setCursor(2, 0);
+  lcd.print("Reset turns?");
+  lcd.setCursor(3, 1);
+  lcd.print("Yes");
+  lcd.setCursor(11, 1);
+  lcd.print("No");
+
+  lcd.setCursor(2, 1);
+  lcd.print(" ");
+
+  lcd.setCursor(10, 1);
+  lcd.print(" ");
+
+  byte p = _selectYes ? 2 : 10;
+  lcd.setCursor(p, 1);
+  lcd.print(">");
+}
+
+void OnClickResetHandler(){
+   Serial.print("OnClickResetHandler");
+   menuController.Hide();
+   ShowResetTurnsWarning();
+   //turns = 0;
+}
+
+
 
 void setup()
 {
@@ -131,6 +163,7 @@ void setup()
 
   settingMenu[1] = new SettingItemBase();
   settingMenu[1]->SetTitle("Reset");
+  settingMenu[1]->OnClick(OnClickResetHandler);
 
   settingMenu[2] = new SettingItemBool(_revers);
   settingMenu[2]->SetTitle("Revers");
@@ -147,25 +180,7 @@ void setup()
 
 
 
-void ShowResetTurnsWarning()
-{
-  lcd.setCursor(2, 0);
-  lcd.print("Reset turns?");
-  lcd.setCursor(3, 1);
-  lcd.print("Yes");
-  lcd.setCursor(11, 1);
-  lcd.print("No");
 
-  lcd.setCursor(2, 1);
-  lcd.print(" ");
-
-  lcd.setCursor(10, 1);
-  lcd.print(" ");
-
-  byte p = selectYes ? 2 : 10;
-  lcd.setCursor(p, 1);
-  lcd.print(">");
-}
 
 void ShowDirChar(int value)
 {
@@ -175,15 +190,15 @@ void ShowDirChar(int value)
 
 void UpdateDirection()
 {
-  if (dirUp <= 0 && dirDown <= 0)
+  if (_dirUp <= 0 && _dirDown <= 0)
   {
     ShowDirChar(2);
   }
-  if (dirUp > 0)
+  if (_dirUp > 0)
   {
     ShowDirChar(0);
   }
-  if (dirDown > 0)
+  if (_dirDown > 0)
   {
     ShowDirChar(1);
   }
@@ -193,8 +208,8 @@ void loop()
 {
   eb.tick();
 
-  dirUp = digitalRead(DIR1);
-  dirDown = digitalRead(DIR2);
+  _dirUp = digitalRead(DIR1);
+  _dirDown = digitalRead(DIR2);
 
   if (eb.left())
   {
@@ -219,21 +234,26 @@ void loop()
     }
   }
 
+  //Serial.print("menuController.IsActive=");
+  //Serial.println(menuController.IsActive());
+
+
   if (menuController.IsActive())
   {
     menuController.UpdateScreen();
     //delay(100);
-    // Serial.println("1 UpdateScreen main");
+     //Serial.println("1 UpdateScreen main");
   }
   else
   {
-   // Serial.println("2 UpdateScreen main");
+    //Serial.println("2 main");
     //delay(100);
     UpdateDirection();
-    if (lastTurn != turns)
+    if (_lastTurn != turns || _forceUpdate)
     {
       UpdateTurns();
-      lastTurn = turns;
+      _lastTurn = turns;
+      _forceUpdate = false;
     }
   }
 }

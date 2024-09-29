@@ -29,8 +29,9 @@ void MenuController::Init(SettingItemBase *itemsArray[], uint8_t size, uint8_t s
 
 void MenuController::UpdateScreen()
 {
-    if (!_isDirty)
+    if (!_isDirty){
         return;
+    }
 
     _currentViewIndex = floor(_currentSelectIndex / (float)SCREEN_LINE_COUNT) * SCREEN_LINE_COUNT;
 
@@ -66,7 +67,7 @@ void MenuController::SetDirty()
 
 void MenuController::Click()
 {
-    if(!_isActive) return;
+    //if(!_isActive) return;
 
     _mainMenu[_currentSelectIndex]->Click();
     SetDirty();
@@ -74,7 +75,7 @@ void MenuController::Click()
 
 void MenuController::Left()
 {
-    if(!_isActive) return;
+    //if(!_isActive) return;
 
     if (_mainMenu[_currentSelectIndex]->IsEditValue())
     {
@@ -93,7 +94,7 @@ void MenuController::Left()
 
 void MenuController::Right()
 {
-    if(!_isActive) return;
+    //if(!_isActive) return;
 
     if (_mainMenu[_currentSelectIndex]->IsEditValue())
     {
@@ -134,6 +135,7 @@ void MenuController::Hide()
 {
     _lcd.clear();
     _isActive = false;
+    SetDirty();
     
     Serial.println("menuController.Hide()");
 }
