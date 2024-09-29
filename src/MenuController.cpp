@@ -67,7 +67,7 @@ void MenuController::SetDirty()
 
 void MenuController::Click()
 {
-    //if(!_isActive) return;
+    if(!_isActive) return;
 
     _mainMenu[_currentSelectIndex]->Click();
     SetDirty();
@@ -75,7 +75,7 @@ void MenuController::Click()
 
 void MenuController::Left()
 {
-    //if(!_isActive) return;
+    if(!_isActive) return;
 
     if (_mainMenu[_currentSelectIndex]->IsEditValue())
     {
@@ -94,7 +94,7 @@ void MenuController::Left()
 
 void MenuController::Right()
 {
-    //if(!_isActive) return;
+    if(!_isActive) return;
 
     if (_mainMenu[_currentSelectIndex]->IsEditValue())
     {
@@ -126,6 +126,8 @@ void MenuController::Show()
 
     _lcd.clear();
     _isActive = true;
+    _currentSelectIndex = 0;
+    _currentViewIndex = 0;
     SelectCurrent(0);
     SetDirty();
     Serial.println("menuController.Show()");

@@ -1,22 +1,28 @@
-#define KEY 17  //енкодер KEY
-#define S1 15   //енкодер S1
-#define S2 16   //енкодер S2
+#define KEY 17 // енкодер KEY
+#define S1 15  // енкодер S1
+#define S2 16  // енкодер S2
 
 #define DIR1 5 // на кнопку живлення -/+
 #define DIR2 6 // на кнопку живлення +/-
-#define TURN 3 //пін на датчик хола
+#define TURN 3 // пін на датчик хола
 
-#define MAIN_MENU_SIZE 5 //максимальна кількість пунктів меню
+#define BOOZER 8
+
+#define MAIN_MENU_SIZE 5 // максимальна кількість пунктів меню
 
 #include <EncButton.h>
 #include <LiquidCrystal_I2C.h>
 #include "MenuController.h"
 #include "SettingItemBool.h"
+#include "WarningMessage.h"
+#include "SoundController.h"
 
-LiquidCrystal_I2C lcd(0x27, 16, 2); // Налаштування дисплея
-MenuController menuController(lcd); //контролер меню налаштувань
-EncButton eb(S1, S2, KEY); //зміна енкодера
-SettingItemBase* settingMenu[MAIN_MENU_SIZE]; //пункти меню
+LiquidCrystal_I2C lcd(0x27, 16, 2);           // Налаштування дисплея
+MenuController menuController(lcd);           // контролер меню налаштувань
+EncButton eb(S1, S2, KEY);                    // Енкодер
+SettingItemBase *settingMenu[MAIN_MENU_SIZE]; // пункти меню
+WarningMessage warningMessage(lcd);           // вікно підтвердження скиду витків
+SoundController soundController(BOOZER);
 
 volatile int turns;
 int _lastTurn;
@@ -71,9 +77,10 @@ byte selectChar[8] = {
     B00000};
 #pragma endregion CustomChars
 
-void handleInterrupt()  
+void handleInterrupt()
 {
   turns++;
+  soundController.Play(SoundController::M_TURN);
 }
 
 void StartMessage()
@@ -101,42 +108,30 @@ void UpdateTurns()
   lcd.print(_buffer);
 }
 
-
-void OnClickBackHandler(){
+void OnClickBackHandler()
+{
   Serial.print("OnClickBackHandler");
   menuController.Hide();
-  //UpdateTurns();
+  // UpdateTurns();
   _forceUpdate = true;
 }
 
-void ShowResetTurnsWarning()
+void OnClickResetHandler()
 {
-  lcd.setCursor(2, 0);
-  lcd.print("Reset turns?");
-  lcd.setCursor(3, 1);
-  lcd.print("Yes");
-  lcd.setCursor(11, 1);
-  lcd.print("No");
-
-  lcd.setCursor(2, 1);
-  lcd.print(" ");
-
-  lcd.setCursor(10, 1);
-  lcd.print(" ");
-
-  byte p = _selectYes ? 2 : 10;
-  lcd.setCursor(p, 1);
-  lcd.print(">");
+  Serial.print("OnClickResetHandler");
+  menuController.Hide();
+  warningMessage.Show();
 }
 
-void OnClickResetHandler(){
-   Serial.print("OnClickResetHandler");
-   menuController.Hide();
-   ShowResetTurnsWarning();
-   //turns = 0;
+void OnYesClickHandler()
+{
+  turns = 0;
 }
 
-
+void OnNoClickHandler()
+{
+  menuController.Show();
+}
 
 void setup()
 {
@@ -174,13 +169,14 @@ void setup()
   settingMenu[4] = new SettingItemBase();
   settingMenu[4]->SetTitle("Volume");
 
-  menuController.Init(settingMenu, MAIN_MENU_SIZE,3);
+  menuController.Init(settingMenu, MAIN_MENU_SIZE, 3);
+
+  warningMessage.Init(3);
+  warningMessage.OnClick(OnYesClickHandler, OnNoClickHandler);
+
+  soundController.Init();
   UpdateTurns();
 }
-
-
-
-
 
 void ShowDirChar(int value)
 {
@@ -207,6 +203,7 @@ void UpdateDirection()
 void loop()
 {
   eb.tick();
+  soundController.Update();
 
   _dirUp = digitalRead(DIR1);
   _dirDown = digitalRead(DIR2);
@@ -215,18 +212,27 @@ void loop()
   {
     Serial.println("Left");
     menuController.Left();
+    warningMessage.Left();
+    soundController.Play(SoundController::M_PRESS);
   }
   if (eb.right())
   {
     Serial.println("Right");
     menuController.Right();
+    warningMessage.Right();
+    soundController.Play(SoundController::M_PRESS);
   }
   if (eb.click())
   {
     Serial.println("Click");
-    if (!menuController.IsActive())
+    soundController.Play(SoundController::M_PRESS);
+    if (!menuController.IsActive() && !warningMessage.IsActive())
     {
       menuController.Show();
+    }
+    else if (warningMessage.IsActive())
+    {
+      warningMessage.Click();
     }
     else
     {
@@ -234,20 +240,23 @@ void loop()
     }
   }
 
-  //Serial.print("menuController.IsActive=");
-  //Serial.println(menuController.IsActive());
-
+  // Serial.print("menuController.IsActive=");
+  // Serial.println(menuController.IsActive());
 
   if (menuController.IsActive())
   {
     menuController.UpdateScreen();
-    //delay(100);
-     //Serial.println("1 UpdateScreen main");
+    // delay(100);
+    // Serial.println("1 UpdateScreen main");
+  }
+  else if (warningMessage.IsActive())
+  {
+    warningMessage.UpdateScreen();
   }
   else
   {
-    //Serial.println("2 main");
-    //delay(100);
+    // Serial.println("2 main");
+    // delay(100);
     UpdateDirection();
     if (_lastTurn != turns || _forceUpdate)
     {
