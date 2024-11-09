@@ -15,47 +15,13 @@ void SoundController::Init()
 
 void SoundController::Update()
 {
-    /*   if (_noteIndex < sizeof(_melody) / sizeof(_melody[0]))
-      {
-          if (!_playing)
-          {
-              // Встановлюємо частоту біпера
-              tone(_pin, _melody[_noteIndex]);
 
-              // Визначаємо час початку ноти
-              _noteStartTime = millis();
-              _playing = true;
-          }
-
-          // Перевіряємо, чи пройшла тривалість ноти
-          if (millis() - _noteStartTime >= 1000 / _noteDurations[_noteIndex])
-          {
-              // Зупиняємо біпер
-              noTone(_pin);
-              _playing = false;
-
-              // Переходимо до наступної ноти
-              _noteIndex++;
-          }
-      }
-      else
-      {
-          // Якщо вся мелодія зіграна, зупиняємо біпер
-          if (_playing)
-          {
-              noTone(_pin);
-              _playing = false;
-          }
-      } */
-
-    if (!_playing ||_currentMelody == nullptr)
+    if (!_playing || _currentMelody == nullptr)
     {
         return; // Немає мелодії для відтворення
     }
 
-  
     tone(_pin, _currentMelody[_noteIndex]);
-
 
     unsigned long currentMillis = millis();
 
@@ -103,6 +69,12 @@ void SoundController::Play(MelodyTypeE melody)
         _currentMelody = _m_press;
         _currentDurations = _d_press;
         _currentMelodyLength = sizeof(_m_press) / sizeof(_m_press[0]);
+        break;
+
+    case M_STEP:
+        _currentMelody = _m_step;
+        _currentDurations = _d_step;
+        _currentMelodyLength = sizeof(_m_step) / sizeof(_m_step[0]);
         break;
 
         // Додаємо інші мелодії тут

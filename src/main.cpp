@@ -1,3 +1,4 @@
+#define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 #define KEY 17 // енкодер KEY
 #define S1 15  // енкодер S1
 #define S2 16  // енкодер S2
@@ -6,14 +7,16 @@
 #define DIR2 6 // на кнопку живлення +/-
 #define TURN 3 // пін на датчик хола
 
-#define BOOZER 8
+#define BOOZER 8 // піщалка
 
-#define MAIN_MENU_SIZE 5 // максимальна кількість пунктів меню
+#define MAIN_MENU_SIZE 7 // максимальна кількість пунктів меню
 
 #include <EncButton.h>
 #include <LiquidCrystal_I2C.h>
+#include <EEPROM.h>
 #include "MenuController.h"
 #include "SettingItemBool.h"
+#include "SettingItemInt.h"
 #include "WarningMessage.h"
 #include "SoundController.h"
 
@@ -22,18 +25,26 @@ MenuController menuController(lcd);           // контролер меню н�
 EncButton eb(S1, S2, KEY);                    // Енкодер
 SettingItemBase *settingMenu[MAIN_MENU_SIZE]; // пункти меню
 WarningMessage warningMessage(lcd);           // вікно підтвердження скиду витків
-SoundController soundController(BOOZER);
+SoundController soundController(BOOZER);      // контролер звуків
 
-volatile int turns;
-int _lastTurn;
+volatile uint32_t turns;
+uint32_t _lastTurn;
 bool _dirUp;
 bool _dirDown;
 bool _selectYes;
 
-bool _revers = false;
-bool _beep = false;
 bool _forceUpdate = false;
-char _buffer[5];
+char _buffer[6];
+int _settingsAddress = 0;
+
+struct Settings
+{
+  bool revers = false;
+  bool beep = false;
+  bool menuSound = false;
+  uint16_t stepBeep = 0;
+};
+Settings _settings;
 
 #pragma region CustomChars
 byte charUp[8] = {
@@ -79,8 +90,29 @@ byte selectChar[8] = {
 
 void handleInterrupt()
 {
-  turns++;
-  soundController.Play(SoundController::M_TURN);
+  int8_t _dirValue = 0;
+  if (_dirUp)
+    _dirValue = 1;
+  if (_dirDown)
+    _dirValue = -1;
+
+  if (_settings.revers)
+    _dirValue *= -1;
+
+  if ((_dirValue > 0 && turns < 99999))
+    turns++;
+  else if (_dirValue < 0 && turns > 0)
+  {
+    turns--;
+  }
+
+  if (_dirValue != 0 && _settings.beep)
+    soundController.Play(SoundController::M_TURN);
+
+  if (_settings.stepBeep > 0 && _settings.stepBeep <= turns && turns % _settings.stepBeep == 0)
+  {
+    soundController.Play(SoundController::M_STEP);
+  }
 }
 
 void StartMessage()
@@ -99,12 +131,17 @@ void StartMessage()
 
 void UpdateTurns()
 {
-  Serial.print("UpdateTurns");
+  if (_settings.stepBeep > 0)
+  {
+    lcd.setCursor(0, 1);
+    lcd.print(_settings.stepBeep);
+  }
+
   lcd.setCursor(5, 0);
   lcd.print("TURNS:");
   lcd.setCursor(5, 1);
 
-  sprintf(_buffer, "%05d", turns);
+  sprintf(_buffer, "%05lu", turns);
   lcd.print(_buffer);
 }
 
@@ -112,7 +149,6 @@ void OnClickBackHandler()
 {
   Serial.print("OnClickBackHandler");
   menuController.Hide();
-  // UpdateTurns();
   _forceUpdate = true;
 }
 
@@ -123,9 +159,17 @@ void OnClickResetHandler()
   warningMessage.Show();
 }
 
+void OnClickSaveHandler()
+{
+  menuController.Hide();
+  _forceUpdate = true;
+  EEPROM.put(_settingsAddress, _settings);
+}
+
 void OnYesClickHandler()
 {
   turns = 0;
+  _forceUpdate = true;
 }
 
 void OnNoClickHandler()
@@ -136,12 +180,13 @@ void OnNoClickHandler()
 void setup()
 {
   Serial.begin(115200);
+  EEPROM.get(_settingsAddress, _settings);
   turns = 0;
   pinMode(DIR1, INPUT);
   pinMode(DIR2, INPUT);
   pinMode(TURN, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(TURN), handleInterrupt, FALLING);
+  attachInterrupt(digitalPinToInterrupt(TURN), handleInterrupt, RISING);
 
   lcd.init();
   lcd.backlight(); // Включаем подсветку дисплея
@@ -160,14 +205,21 @@ void setup()
   settingMenu[1]->SetTitle("Reset");
   settingMenu[1]->OnClick(OnClickResetHandler);
 
-  settingMenu[2] = new SettingItemBool(_revers);
+  settingMenu[2] = new SettingItemBool(_settings.revers);
   settingMenu[2]->SetTitle("Revers");
 
-  settingMenu[3] = new SettingItemBool(_beep);
+  settingMenu[3] = new SettingItemBool(_settings.beep);
   settingMenu[3]->SetTitle("Beep");
 
-  settingMenu[4] = new SettingItemBase();
-  settingMenu[4]->SetTitle("Volume");
+  settingMenu[4] = new SettingItemInt(_settings.stepBeep, 0, 999);
+  settingMenu[4]->SetTitle("Step beep");
+
+  settingMenu[5] = new SettingItemBool(_settings.menuSound);
+  settingMenu[5]->SetTitle("Menu sound");
+
+  settingMenu[6] = new SettingItemBase();
+  settingMenu[6]->SetTitle("Save");
+  settingMenu[6]->OnClick(OnClickSaveHandler);
 
   menuController.Init(settingMenu, MAIN_MENU_SIZE, 3);
 
@@ -175,6 +227,7 @@ void setup()
   warningMessage.OnClick(OnYesClickHandler, OnNoClickHandler);
 
   soundController.Init();
+  soundController.Play(soundController.M_START);
   UpdateTurns();
 }
 
@@ -200,6 +253,12 @@ void UpdateDirection()
   }
 }
 
+void PlayPressSound()
+{
+  if (_settings.menuSound)
+    soundController.Play(SoundController::M_PRESS);
+}
+
 void loop()
 {
   eb.tick();
@@ -213,19 +272,20 @@ void loop()
     Serial.println("Left");
     menuController.Left();
     warningMessage.Left();
-    soundController.Play(SoundController::M_PRESS);
+    PlayPressSound();
   }
   if (eb.right())
   {
     Serial.println("Right");
     menuController.Right();
     warningMessage.Right();
-    soundController.Play(SoundController::M_PRESS);
+    PlayPressSound();
   }
   if (eb.click())
   {
     Serial.println("Click");
-    soundController.Play(SoundController::M_PRESS);
+    PlayPressSound();
+
     if (!menuController.IsActive() && !warningMessage.IsActive())
     {
       menuController.Show();
@@ -240,14 +300,9 @@ void loop()
     }
   }
 
-  // Serial.print("menuController.IsActive=");
-  // Serial.println(menuController.IsActive());
-
   if (menuController.IsActive())
   {
     menuController.UpdateScreen();
-    // delay(100);
-    // Serial.println("1 UpdateScreen main");
   }
   else if (warningMessage.IsActive())
   {
@@ -255,8 +310,6 @@ void loop()
   }
   else
   {
-    // Serial.println("2 main");
-    // delay(100);
     UpdateDirection();
     if (_lastTurn != turns || _forceUpdate)
     {

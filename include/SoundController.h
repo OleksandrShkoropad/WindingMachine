@@ -23,6 +23,8 @@ private:
     uint16_t _m_press[1] = {1300};
     uint8_t _d_press[1] = {8};
 
+    uint16_t _m_step[2] = {1000,900};
+    uint8_t _d_step[2] = {8,8};
     
 
 public:
@@ -33,7 +35,8 @@ public:
     {
         M_START,
         M_TURN,
-        M_PRESS
+        M_PRESS,
+        M_STEP
     };
     void Init();
     void Update();

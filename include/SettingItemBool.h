@@ -3,10 +3,10 @@
 class SettingItemBool : public SettingItemBase
 {
 private:
-    bool _value;
+    bool &_value;
 
 public:
-    SettingItemBool(bool value);
+    SettingItemBool(bool &value);
     ~SettingItemBool();
     void Left() override;
     void Right() override;
