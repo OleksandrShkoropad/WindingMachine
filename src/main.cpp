@@ -186,7 +186,7 @@ void setup()
   pinMode(DIR2, INPUT);
   pinMode(TURN, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(TURN), handleInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TURN), handleInterrupt, FALLING);
 
   lcd.init();
   lcd.backlight(); // Включаем подсветку дисплея
