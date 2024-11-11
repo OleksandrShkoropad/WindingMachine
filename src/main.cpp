@@ -1,10 +1,10 @@
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
-#define KEY 17 // енкодер KEY
-#define S1 15  // енкодер S1
-#define S2 16  // енкодер S2
+#define KEY 14 // енкодер KEY
+#define S1 16  // енкодер S1
+#define S2 15  // енкодер S2
 
-#define DIR1 5 // на кнопку живлення -/+
-#define DIR2 6 // на кнопку живлення +/-
+#define DIR1 4 // на кнопку живлення -/+
+#define DIR2 5 // на кнопку живлення +/-
 #define TURN 3 // пін на датчик хола
 
 #define BOOZER 8 // піщалка
