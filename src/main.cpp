@@ -5,7 +5,7 @@
 
 #define DIR1 4 // на кнопку живлення -/+
 #define DIR2 5 // на кнопку живлення +/-
-#define TURN 3 // пін на датчик хола
+#define TURN 2 // пін на датчик хола
 
 #define BOOZER 8 // піщалка
 
